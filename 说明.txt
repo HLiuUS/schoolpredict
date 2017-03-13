@@ -1,0 +1,15 @@
+srawlerdata.txt中的数据依次为：
+ad_type, ad_major, ad_school, undergrad_major,undergrad_school,undergrad_GPA,undergrad_comments, toefl, gre, other_comment
+
+每一类数据以三个空格隔开
+
+上午讨论的feature类型有：
+
+本科学校
+本科GPA
+本科GPA 排名
+本科专业排名
+GRE
+TOELF
+Paper数量
+实习经历档次
