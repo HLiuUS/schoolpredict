@@ -10,10 +10,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import time
+imoport os
 
-gter = pd.read_excel('C:/Users/hliu88/Desktop/temp/Schoolpredict/all-gter-processed_reviewd and modified.xls')
+os.chdir('/media/heng/Software/Dropbox/Schoolpredict')
+gter = pd.read_csv('gter.csv')
+
+gter = pd.read_excel('C:/Users/Yunpeng/Desktop/Schoolpredict/all-gter-processed_reviewd and modified.xls')
 # drop columns not interested
-gter.drop([u'UserID', u'Registration_Date', u'Url', u'School ID', u'Sub_Date'], axis=1, inplace=True)
+gter.drop([u'Registration_Date', u'Url', u'School ID', u'Sub_Date'], axis=1, inplace=True)
 # keep data where school name is available
 gter = gter[gter['School'].notnull()]
 
@@ -56,10 +60,12 @@ name_imcomplete = name_imcomplete[~name_imcomplete['School'].str.lower().str.con
 name_imcomplete = name_imcomplete[~name_imcomplete['School'].str.lower().str.contains('u')]                 
 name_imcomplete['School'] = name_imcomplete['School']+ ' University'
 
+
 # update imcomplete school name with above school name
 for index, value in name_imcomplete.iterrows():
     gter.loc[index, 'School'] = name_imcomplete.loc[index,'School'] 
-           
+    
+#%%           
 # use google api to standardize the school names
 #time.sleep(8)
 import googlemaps
@@ -90,6 +96,25 @@ gter_eff['country'] = gter_eff['School_std'].str.split(', ').str[-1]
 #gter_eff['state'] = gter_eff['School_std'].str.split(', ').str[-2]
 
 gter_usa = gter_eff[gter_eff['country'] == 'United States']
+
+#%%           
+# use google custom search api to standardize the school names
+school_unique = pd.Series(gter['School'].unique())
+school_unique_adjust = pd.Series()
+
+school_name = pd.concat([school_unique, school_unique_adjust], axis=1)
+school_name= school_name.rename(columns={0:'ori', 1:'adj'})
+
+from googleapiclient.discovery import build
+    
+service = build("customsearch", "v1", developerKey="AIzaSyB_jUbSitAUzX0neWC4tAkDUoLuIKceaWU")
+
+for index, value in school_name.iterrows():
+    query = value['ori']
+    res = service.cse().list(q=query, cx='011761368493089171845:fsd_n1wdkou',lr="lang_en").execute()
+    school_name.loc[index, 'adj'] = res['items'][0]['title']
+    time.sleep(5) 
+
 
 
 #%% GRE processing                             
