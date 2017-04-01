@@ -10,16 +10,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import time
-imoport os
+import os
+import re
 
-os.chdir('/media/heng/Software/Dropbox/Schoolpredict')
+os.chdir('/home/heng/schoolpredict')
 gter = pd.read_csv('gter.csv')
 
-gter = pd.read_excel('C:/Users/Yunpeng/Desktop/Schoolpredict/all-gter-processed_reviewd and modified.xls')
+gter = pd.read_excel('all-gter-processed_reviewd and modified.xls')
 # drop columns not interested
 gter.drop([u'Registration_Date', u'Url', u'School ID', u'Sub_Date'], axis=1, inplace=True)
 # keep data where school name is available
 gter = gter[gter['School'].notnull()]
+#%%
 
 # detect the language of school names, should be only English and Chinese
 # but sometimes English is detected as other languages (roughly 90% accuracy)
@@ -114,7 +116,65 @@ for index, value in school_name.iterrows():
     res = service.cse().list(q=query, cx='011761368493089171845:fsd_n1wdkou',lr="lang_en").execute()
     school_name.loc[index, 'adj'] = res['items'][0]['title']
     time.sleep(5) 
+#%% directly use google search to standardize the school names
+import requests
+from bs4 import BeautifulSoup
+import googlemaps
 
+def get_address_from_gmap(school_name):
+    gmaps = googlemaps.Client(key='AIzaSyB_jUbSitAUzX0neWC4tAkDUoLuIKceaWU')
+    univ = gmaps.places_autocomplete(school_name, 'university')
+    if univ:
+        address = univ[0]['structured_formatting']['secondary_text']
+    else:
+        address = ''
+    return address
+
+school_names = pd.Series(gter['School'].unique())
+school_names_adjust = pd.Series()
+school_address = pd.Series()
+
+schools = pd.concat([school_names, school_names_adjust, school_address], axis=1)
+schools = schools.rename(columns={0:'ori', 1:'adj', 2:'address'})
+
+def get_name_and_address(school_name):
+    url = 'https://www.google.com/search'
+    query = school_name
+    payload = {'q': query, 'hl':'en', 'lr': 'lang_en', 'client':'ubntu', 'channel':'fs'}
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0"}
+    r = requests.get(url, params=payload, headers=headers)
+    soup = BeautifulSoup(r.text)
+    
+    name = soup.find('div', class_='kno-ecr-pt kno-fb-ctx _hdf')
+    if name:
+        school_name_adj = name.text
+        address = soup.find('span', class_='_Xbe')
+        if address:
+            school_address = address.text
+        else:
+            school_address = get_address_from_gmap(school_name_adj)
+    else:
+        school_name_adj = soup.find('h3', class_='r').text
+        school_address = get_address_from_gmap(school_name_adj)
+
+    time.sleep(5) 
+    return school_name_adj, school_address
+
+for index, value in schools.iterrows():
+    schools.loc[index, 'adj'], schools.loc[index, 'address'] = get_name_and_address(value[0])
+
+def search_for_implete_name(schools):
+    searchfor = ['university', 'université', 'universiteit', 'school', 'college', 'tech', 'institute', 'eth zurich', 'entrale']
+    schools_1 = schools[~schools['adj'].str.lower().str.contains('|'.join(searchfor))]
+    return schools_1
+
+schools_1 = search_for_implete_name(schools)
+
+schools_1['ori'] = schools_1['ori'] + ' University'
+for index, value in schools_1.iterrows():
+    schools_1.loc[index, 'adj'], schools_1.loc[index, 'address'] = get_name_and_address(value[0])
+    
+schools_2 = search_for_implete_name(schools_1)
 
 
 #%% GRE processing                             
