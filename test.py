@@ -121,6 +121,13 @@ import requests
 from bs4 import BeautifulSoup
 import googlemaps
 
+school_names = pd.Series(gter['School'].unique())
+school_names_adjust = pd.Series()
+school_address = pd.Series()
+
+schools = pd.concat([school_names, school_names_adjust, school_address], axis=1)
+schools = schools.rename(columns={0:'ori', 1:'adj', 2:'address'})
+
 def get_address_from_gmap(school_name):
     gmaps = googlemaps.Client(key='AIzaSyB_jUbSitAUzX0neWC4tAkDUoLuIKceaWU')
     univ = gmaps.places_autocomplete(school_name, 'university')
@@ -130,19 +137,29 @@ def get_address_from_gmap(school_name):
         address = ''
     return address
 
-school_names = pd.Series(gter['School'].unique())
-school_names_adjust = pd.Series()
-school_address = pd.Series()
-
-schools = pd.concat([school_names, school_names_adjust, school_address], axis=1)
-schools = schools.rename(columns={0:'ori', 1:'adj', 2:'address'})
-
 def get_name_and_address(school_name):
     url = 'https://www.google.com/search'
     query = school_name
     payload = {'q': query, 'hl':'en', 'lr': 'lang_en', 'client':'ubntu', 'channel':'fs'}
+    proxyDict = {'http': 'http://68.115.227.34:3128',
+                 'http': 'http://99.33.128.101:3128',
+                 'http': 'http://67.205.168.235:80',
+                 'http': 'http://34.193.141.64:80',
+                 'http': 'http://192.240.123.70:80',
+                 'http': 'http://67.45.172.203:87',
+                 'http': 'http://45.76.179.11:8000',
+                 'http': 'http://104.197.218.184:80',
+                 'http': 'http://104.154.238.58:80',
+                 'http': 'http://96.65.123.249:8118',
+                 'http': 'http://35.185.60.223:80',
+                 'http': 'http://104.196.170.17:80',
+                 'http': 'http://74.118.245.70:80',
+                 'http': 'http://162.243.255.181:80',
+                 'http': 'http://66.111.40.33:3128',
+                 'http': 'http://192.241.142.133:8080'
+                 }
     headers = {"User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0"}
-    r = requests.get(url, params=payload, headers=headers)
+    r = requests.get(url, params=payload, headers=headers, proxies=proxyDict)
     soup = BeautifulSoup(r.text)
     
     name = soup.find('div', class_='kno-ecr-pt kno-fb-ctx _hdf')
@@ -161,15 +178,17 @@ def get_name_and_address(school_name):
     return school_name_adj, school_address
 
 for index, value in schools.iterrows():
-    schools.loc[index, 'adj'], schools.loc[index, 'address'] = get_name_and_address(value[0])
+    if index > 234:
+        schools.loc[index, 'adj'], schools.loc[index, 'address'] = get_name_and_address(value[0])
+
+schools = schools.fillna('')
 
 def search_for_implete_name(schools):
     searchfor = ['university', 'université', 'universiteit', 'school', 'college', 'tech', 'institute', 'eth zurich', 'entrale']
     schools_1 = schools[~schools['adj'].str.lower().str.contains('|'.join(searchfor))]
     return schools_1
-
+#%%
 schools_1 = search_for_implete_name(schools)
-
 schools_1['ori'] = schools_1['ori'] + ' University'
 for index, value in schools_1.iterrows():
     schools_1.loc[index, 'adj'], schools_1.loc[index, 'address'] = get_name_and_address(value[0])
